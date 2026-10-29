@@ -16,12 +16,6 @@ terraform {
   }
 }
 # Generate distinct secure Client Secrets
-resource "random_password" "client_secret" {
-  for_each = var.apps_config
-
-  length  = 32
-  special = false
-}
 
 # Generate distinct secure Client IDs
 resource "random_string" "client_id" {
@@ -38,7 +32,6 @@ resource "authentik_provider_oauth2" "oauth2" {
 
   name               = "${each.value.name}-provider"
   client_id          = random_string.client_id[each.key].result
-  client_secret      = random_password.client_secret[each.key].result
   authorization_flow = each.value.authorization_flow_uuid
   redirect_uris      = each.value.redirect_uris
   property_mappings  = each.value.property_mappings
@@ -48,25 +41,48 @@ resource "authentik_provider_oauth2" "oauth2" {
 resource "authentik_application" "app" {
   for_each = var.apps_config
 
-  name            = each.value.name
-  slug            = each.value.slug
-  provider_id     = authentik_provider_oauth2.oauth2[each.key].id
-  open_in_new_tab = true
+  name                  = each.value.name
+  slug                  = each.value.slug
+  provider_id           = authentik_provider_oauth2.oauth2[each.key].id
+  backchannel_providers = each.value.backchannel_providers
+  group                 = each.value.group
+  meta_description      = each.value.meta_description
+  meta_hide             = each.value.meta_hide
+  meta_icon             = each.value.meta_icon
+  meta_launch_url       = each.value.meta_launch_url
+  meta_publisher        = each.value.meta_publisher
+  open_in_new_tab       = each.value.open_in_new_tab
+  policy_engine_mode    = each.value.policy_engine_mode
+  protocol_provider     = each.value.protocol_provider
 }
 
+ephemeral "authentik_provider_oauth2_config" "oauth2_config" {
+  for_each = var.apps_config
+  name       = each.value.name
+  sensitive = true
+}
 # Push independent Ecosystem Configurations to individual Vault Engine paths
 resource "vault_kv_secret_v2" "oauth_config" {
-  for_each = var.apps_config
-
-  mount = each.value.vault_mount
-  name  = each.value.vault_secret_name
-
-  data_json = jsonencode({
-    client_id     = random_string.client_id[each.key].result
-    client_secret = random_password.client_secret[each.key].result
-    redirect_uris = join(",", each.value.redirect_uris)
-    auth_url      = "${stringtrimright(var.authentik_base_url, "/")}/application/o/authorize/"
-    token_url     = "${stringtrimright(var.authentik_base_url, "/")}/application/o/token/"
-    userinfo_url  = "${stringtrimright(var.authentik_base_url, "/")}/application/o/userinfo/"
+  for_each = data.authentik_provider_oauth2_config.oauth2_config
+  depends_on = [
+    random_string.client_id,
+    random_password.client_secret,
+    authentik_provider_oauth2.oauth2,
+    authentik_application.app,
+    authentik_provider_oauth2_config.oauth2_config
+  ]
+  mount = var.vault_kv_mount
+  name  = "authentik/oauth2/${each.key}"
+  data_json_wo_version = var.password_version
+  data_json_wo = jsonencode({
+    client_id         = random_string.client_id[each.key].result
+    client_secret     = ephemeral.authentik_provider_oauth2_config.oauth2_config[each.key].client_secret
+    authorize_url     = each.value.authorize_url
+    issuer_url        = each.value.issuer_url
+    jwks_url          = each.value.jwks_url
+    logout_url        = each.value.logout_url
+    provider_info_url = each.value.provider_info_url
+    token_url         = each.value.token_url
+    user_info_url     = each.value.user_info_url
   })
 }
