@@ -25,14 +25,16 @@ resource "random_string" "client_id" {
   special = false
   upper   = false
 }
-
+data "authentik_flow" "default-authorization-flow" {
+  slug = var.default_authorization_flow_slug
+}
 # Provision OAuth2/OIDC Providers
 resource "authentik_provider_oauth2" "oauth2" {
   for_each = var.apps_config
 
   name               = "${each.value.name}-provider"
   client_id          = random_string.client_id[each.key].result
-  authorization_flow = each.value.authorization_flow_uuid
+  authorization_flow = each.value.authorization_flow_uuid != null ? each.value.authorization_flow_uuid : data.authentik_flow.default-authorization-flow.id
   redirect_uris      = each.value.redirect_uris
   property_mappings  = each.value.property_mappings
 }
@@ -58,7 +60,7 @@ resource "authentik_application" "app" {
 
 ephemeral "authentik_provider_oauth2_config" "oauth2_config" {
   for_each = var.apps_config
-  name       = each.value.name
+  name       = "${each.value.name}-provider"
   sensitive = true
 }
 # Push independent Ecosystem Configurations to individual Vault Engine paths

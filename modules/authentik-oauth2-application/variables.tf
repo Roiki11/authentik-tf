@@ -15,11 +15,16 @@ variable "password_version" {
   type    = number
   default = 1
 }
+variable "default_authorization_flow_slug" {
+  type        = string
+  description = "The slug of the default authorization flow to be used for OAuth2/OIDC providers."
+  default     = "default-authorization-flow"
+}
 variable "apps_config" {
   type = map(object({
     name                       = string
     slug                       = string
-    authorization_flow_uuid    = string
+    authorization_flow_uuid    = optional(string, null)
     redirect_uris              = list(string)
     property_mappings          = optional(list(string), ["scope-openid", "scope-profile", "scope-email"])
     backchannel_providers      = optional(list(string), [])
