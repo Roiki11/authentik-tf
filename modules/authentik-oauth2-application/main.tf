@@ -72,7 +72,7 @@ resource "vault_kv_secret_v2" "oauth_config" {
     authentik_provider_oauth2_config.oauth2_config
   ]
   mount = var.vault_kv_mount
-  name  = "authentik/oauth2/${each.key}"
+  name  = "${var.vault_authentik_oauth2_path}/${each.key}"
   data_json_wo_version = var.password_version
   data_json_wo = jsonencode({
     client_id         = random_string.client_id[each.key].result

@@ -6,9 +6,10 @@ variable "authentik_base_url" {
   type        = string
   description = "The mount path of the Vault KV v2 secrets engine where the OAuth2/OIDC provider configurations will be stored."
  }
- variable "vault_kv_secret_name" {
+ variable "vault_authentik_oauth2_path" {
   type        = string
-  description = "The name of the Vault secret where the OAuth2/OIDC provider configuration will be stored."
+  description = "The path within the Vault KV v2 secrets engine where the OAuth2/OIDC provider configurations will be stored."
+  default     = "authentik/oauth2"
 }
 variable "password_version" {
   type    = number
